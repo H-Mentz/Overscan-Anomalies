@@ -1,0 +1,103 @@
+from lsst.daf.persistence import Butler
+import numpy as np
+import lsst.afw.display as afwDisplay 
+import matplotlib.pyplot as plt 
+import lsst.ip.isr as isr
+import statistics as stat
+import pandas as pd
+afwDisplay.setDefaultBackend('matplotlib')
+%matplotlib inline
+
+def bias_isr(raw, overscan_correct=True):
+    raw_clone = raw.clone()
+    task = isr.isrTask.IsrTask()
+    task.config.doAssembleCcd = True
+    task.assembleCcd.config.doTrim = True
+    task.config.overscanFitType = 'MEDIAN_PER_ROW'
+    task.config.doOverscan = overscan_correct
+    task.config.doBias = False
+    task.config.doLinearize = False
+    task.config.doDark = False
+    task.config.doFlat = False
+    task.config.doDefect = False
+    assembled = task.run(raw_clone).exposure
+    return assembled.getImage()
+    
+    run = '6790D'
+raftName = 'R01'
+detectorName = 'S00'
+# detectorName_2 = 'S10'
+# detectorName.getName()
+imageType = 'FLAT'
+repo = '/lsstdata/offline/teststand/BOT/gen2repo/'
+butler = Butler(repo)
+dataId = dict(detectorName=detectorName, run=run, imageType=imageType, raftName=raftName)
+# dataId = dict(detectorName=detectorName, run=run, imageType=imageType, raftName=raftName)
+expIds = butler.queryMetadata('raw', 'visit', dataId=dataId)
+expId = expIds[0] 
+dataId['visit'] = expId
+exp = butler.get('raw', dataId)
+print(dataId, dataId["detectorName"])
+print()
+# print(dataId, dataId["detectorName_2"])
+# print()
+
+ccd = exp.getDetector()
+amp = ccd[0] 
+# just_the_amp = exp[amp.getRawDataBBox()].getMaskedImage()
+
+dataBBox = amp.getRawDataBBox()
+oscanBBox = amp.getRawHorizontalOverscanBBox()
+overscanImage = exp.maskedImage[oscanBBox]
+overscanArray = overscanImage.image.array
+overscanArraysq = overscanArray ** 2
+ampImage = exp.maskedImage[dataBBox]
+imArray = ampImage.image.array
+imArraysq = imArray ** 2
+print("The shape of image array is ", imArray.shape)
+print()
+print("The shape of image array with each element squared is ", imArraysq.shape)
+print()
+print("The length of the image array is ", len(imArray[0]))
+print()
+print("The length of the overscan array is ", len(overscanArray[:,0]))
+print()
+
+Array = Array = np.hstack((imArray, overscanArray))
+print(Array.shape)
+print()
+print(len(Array[0]))
+print()
+print(Array[:,0].shape)
+print()
+print(Array[0,:].shape)
+print()
+
+std = np.std(Array, axis=0) 
+print(std.shape)
+print(std[-100:])
+print()
+
+mean = np.mean(Array, axis=0)
+print(mean[-100:])
+print()
+
+plt.imshow(Array)
+
+    
+fig = plt.figure(figsize=(30,20))
+
+plt.errorbar(np.arange(len(mean)), mean, yerr=std, ecolor='red', capsize=2, errorevery=1)
+
+# plt.xlim(500, 580)
+# plt.ylim(25500, 25580)
+# plt.ylim(24555, 24580)
+# plt.ylim(24560, 24575)
+# plt.ylim(24567.25, 24568.5)
+# plt.figtext(.5,.9,'Pixel Value', fontsize=100, ha='center')
+# plt.figtext(.5,.8,'ADU Counts',fontsize=30,ha='center')
+# plt.show()
+plt.xlabel('Pixel Value', fontsize=20)
+plt.ylabel('ADU Counts', fontsize=20)
+plt.title("6790D Mean Pixel Number vs ADU Counts for sensor S00", fontsize=30)
+# plt.subplot()
