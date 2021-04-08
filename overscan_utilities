@@ -1,0 +1,75 @@
+++++IN TERMINAL++++
+
+from lsst.daf.persistence import Butler
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import rcParams
+
+
+def get_longest_exposure_info(butler, run, raft, sensor):
+    exp_times = butler.queryMetadata('raw', ['expTime', 'expId'], dataId={'run': run,'raftName': raft,'detectorName': sensor})
+    return np.sort(exp_times,axis=0)[-1]
+
+def plot_overscans(exp, title_prefix):
+    fig = plt.figure()
+    det = exp.getDetector()
+    for amp in det:
+        overscan_arr = exp[amp.getRawHorizontalOverscanBBox()].getMaskedImage().getImage().getArray()
+        overscan_means = np.mean(overscan_arr, axis=0)
+        overscan_std = np.std(overscan_arr, axis=0)
+
+        plt.errorbar(np.arange(len(overscan_means)), overscan_means, yerr=overscan_std, ecolor='red', capsize=2, errorevery=1)
+        plt.title(f'{title_prefix} - {amp.getName()}', fontsize=10)
+        plt.xlabel('Pixel Vailue')#, fontsize=10)
+        plt.ylabel('ADU Counts')#, fontsize=10)
+        plt.rc('xtick', labelsize=10)
+        plt.rc('ytick', labelsize=10)
+        rcParams['axes.titlepad'] = 20
+        plt.tight_layout()
+        plt.show()
+        
+def plot_longest_exp_overscans(butler, run, raft, sensor):
+    exp_time, expId = get_longest_exposure_info(butler, run, raft, sensor)
+    longest_exp = butler.get('raw', dataId={'expId': expId,'run': run,'raftName': raft,'detectorName': sensor})
+
+    det = longest_exp.getDetector()
+    plot_overscans(longest_exp, f'Overscans in Run {run} - {expId} - {det.getSerial()} - {raft} - {sensor}')
+
+
+
+++++ TO USE ++++
+
+from lsst.daf.persistence import Butler
+import lsst.afw
+import numpy as np
+from pathlib import Path
+# for manipulating filesystem paths agnostically whatever the operating system
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+import lsst.ip.isr as isr
+import sys
+
+repo_directory = "/lsstdata/offline/teststand/BOT/gen2repo"
+# repo_directory = "/project/shared/BOT"
+butler = Butler(repo_directory)
+
+run = '6790D'
+raft = 'R11'
+# sensor = 'S02'
+# rafts = ['R01', 'R02', 'R03', 'R10', 'R11', 'R12', 'R13', 'R14', 'R20', 'R21', 'R22', 'R23', 'R24', 'R30', 'R31', 'R32', 'R33', 'R34', 'R41', 'R42', 'R43']
+sensors = ['S00', 'S01', 'S02', 'S10', 'S11', 'S12', 'S20', 'S21', 'S22']
+# Readout Electronic Board may have been turned off got R10: S0x
+
+import overscan_plotting_utilities
+# Future Heather: To access this again 
+# 1) open terminal 
+# 2) type vim overscan_plotting_utilities.py 
+# 3) edit it how you need to
+
+import importlib
+importlib.reload(overscan_plotting_utilities)
+
+# for raft in rafts:
+for sensor in sensors:
+    overscan_plotting_utilities.plot_longest_exp_overscans(butler, run, raft, sensor)
+
+    
