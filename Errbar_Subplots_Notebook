@@ -1,0 +1,32 @@
+from lsst.daf.persistence import Butler
+import lsst.afw
+import numpy as np
+# import lsst.eotest.image_utils as imutils
+from pathlib import Path
+# for manipulating filesystem paths agnostically whatever the operating system
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+# from lsst.eotest.sensor.AmplifierGeometry import makeAmplifierGeometry
+import lsst.ip.isr as isr
+import sys
+
+
+repo_directory = "/lsstdata/offline/teststand/BOT/gen2repo"
+# repo_directory = "/project/shared/BOT"
+butler = Butler(repo_directory)
+
+
+run = '6790D'
+# raft = 'R11'
+# sensor = 'S00'
+rafts = ['R01', 'R02', 'R03', 'R10', 'R11', 'R12', 'R13', 'R14', 'R20', 'R21', 'R22', 'R23', 'R24', 'R30', 'R31', 'R32', 'R33', 'R34', 'R41', 'R42', 'R43']
+sensors = ['S00', 'S01', 'S02', 'S10', 'S11', 'S12', 'S20', 'S21', 'S22']
+# Readout Electronic Board may have been turned off got R10: S0x
+
+
+import overscan_plotting_utilities_copy
+import importlib
+importlib.reload(overscan_plotting_utilities_copy)
+for raft in rafts:
+    for sensor in sensors:
+        overscan_plotting_utilities_copy.plot_longest_exp_overscans(butler, run, raft, sensor)
