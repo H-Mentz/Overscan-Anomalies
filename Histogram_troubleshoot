@@ -1,0 +1,135 @@
+1 from lsst.daf.persistence import Butler
+  2 import numpy as np
+  3 import matplotlib.pyplot as plt
+  4 from matplotlib import rcParams
+  5 
+  6 def get_longest_exposure_info(butler, run, raft, sensor, amp):
+  7     exp_times = butler.queryMetadata('raw', ['expTime','expId'], dataId={'run': run,'raftName'    : raft,'detectorName': sensor})
+  8     return sorted(exp_times)[0]
+  9     
+ 10 def plot_overscans(exp, title_prefix, title_plots):
+ 11     fig, axs = plt.subplots(4,4,figsize=(50,50))
+ 12     
+ 13     det = exp.getDetector()
+ 14     amp = det[0]
+ 15     #print(det.getSerial())
+ 16     #print(type(det))
+ 17     #print(type(amp))
+ 18     #print(amp)
+ 19     #help(amp)
+ 20     #help(type(amp))
+ 21     print(amp.getName())
+ 22     
+ 23     #amp = exp[amp.getRawDataBBox()].getMaskedImage()
+ 24 
+ 25 #     for i in amp:
+ 26 #         amp = ccd[:,i]#for amp in det:
+ 27     #for amp, ax in zip(det, axs.ravel()):
+ 28 
+ 29     #imarray = exp[amp.getRawDataBBox()].getMaskedImage().getImage().getArray()
+ 30     #median_val = np.median(imarray)
+ 31 
+ 32     overscan_arr = exp[amp.getRawHorizontalOverscanBBox()].getMaskedImage().getImage().getArra    y()
+ 33     #overscan_means = np.mean(overscan_arr, axis=0)
+ 34     #print(np.arange(len(overscan_means)))
+ 35     #print(len(overscan_means))
+ 36     #print(overscan_means.shape)
+ 37     #overscan_std = np.std(overscan_arr, axis=0)
+ 38 
+ 39     print(overscan_arr.shape)
+ 40     x = overscan_arr[:,0]
+ 41     #print(x.shape)
+ 42     #print(len(x))
+ 43       a = max(x)
+ 44     b = min(x)
+ 45     c = 50.0
+ 46     bin_width = (a-b)/c
+ 47     #print(bin_width)
+ 48 
+ 49     x_mean = np.mean(x)
+ 50     #print(len(x_mean))
+ 51     #print(x_mean.shape)
+ 52     x_std = np.std(x)
+ 53     #print(x_std)
+ 54     #print(type(x))
+ 55     #print(type(x_mean))
+ 56     drown = float(x_mean)
+ 57     #print(drown)
+ 58     #print(np.arange(len(x)))
+ 59 
+ 60     #y = overscan_arr[:,23]
+ 61     #print(y.shape)
+ 62     #print(len(y))
+ 63     #oscan = overscan_arr.flatten
+ 64     #print(len(oscan))
+ 65     #oscan_arr = overscan_arr.flatten()
+ 66     #print(len(overscan_arr[0:]))
+ 67     #print(len(overscan_arr))
+ 68     #print(len(oscan_arr[0]))
+ 69 
+ 70     fig = plt.hist(x, bins=50, ec='purple', color='green')
+ 71     #fig = plt.hist(y, bins=100, ec='red')
+ 72     plt.xlabel('Pixel Value (ADU)')
+ 73     plt.ylabel('Oscan Number')
+ 74 
+ 75     #fig = plt.errorbar(float(x_mean), x_mean, yerr=x_std, fmt='o', capsize=5) #, ecolor='red'    ) #, capsize=2,errorevery=1)
+ 76     #plt.xlabel('float(np.mean(overscan_arr[:,0]))')
+ 77     #plt.ylabel('x_mean = np.mean(overscan_arr[:,0])')
+ 78     #plt.title('Ebar Plot for Single Amp')
+ 79     #plt.text(drown, x_mean, '({}, {})'.format(drown, x_mean))
+ 80     #plt.show()
+ 81     #ax.errorbar(np.arange(len(overscan_means)), overscan_means, yerr=overscan_std, ecolor='re    d', capsize=2, errorevery=1)
+ 82     #ccd = exp.getDetector()
+ 83         #ax.set_title(f'{title_prefix} - {amp.getName()}', loc='center', pad=20, wrap=True, fo    ntsize=20)
+ 84         #ax.set_xlabel('Overscan Number', fontsize=20)
+ 85         #ax.set_ylabel('ADU Counts', fontsize=20)
+ 86 
+ 87         #ax.ticklabel_format(useOffset=False)
+ 88         #rcParams['axes.titlepad'] = 20   
+ 89         #fig.tight_layout(h_pad=3, w_pad=15)
+ 90         #fig.subplots_adjust(top=0.85)
+ 91 
+ 92         #plt.imshow(overscan_arr)
+ 93         #plt.colorbar()
+ 94 
+ 95 
+ 96         #imarray = exp[amp.getrawdatabbox()].getmaskedimage().getimage().getArray()
+ 97         #median_val = np.median(imarray)
+ 98         #ax.text(0, 0, f'median of imaging region: {median_val} adu', transform=ax.transAxes,     bbox ={'facecolor': 'white'})
+ 99     #plt.savefig(title_plots, facecolor='w', bbox_inches = 'tight', pad_inches = 1)
+100     #fig.show()
+101     #return fig, axs
+102     return fig
+103 #def amp_plots(exp, title_prefix, title_plots):
+104 #     det = exp.getDetector()
+105 #     for amp in det:
+106 #         imarray = exp[amp.getRawDataBBox()].getMaskedImage().getImage().getArray()
+107 #         median_val = np.median(imarray)
+108 #          
+109 #         overscan_arr = exp[amp.getRawHorizontalOverscanBBox()].getMaskedImage().getImage().g    etArray()
+110 #         overscan_means = np.mean(overscan_arr, axis=0)
+111 #         overscan_std = np.std(overscan_arr, axis=0)
+112 
+113          #plt.imshow(overscan_arr)
+114          #plt.colorbar()
+115          #plt.show()
+116 
+117 
+118 def plot_longest_exp_overscans(butler, run, raft, sensor, amp):
+119     exp_Time, expId = get_longest_exposure_info(butler, run, raft, sensor, amp)
+120     longest_exp = butler.get('raw', dataId={'expId': expId,'run': run,'raftName': raft,'detectorName': sensor})
+121 
+122     det = longest_exp.getDetector()
+123 
+124     title_plots = f'plots/errbar_{run}_{expId}_{det.getSerial()}_{raft}_{sensor}.png'
+125     fig = plot_overscans(longest_exp, f'Overscans in Run {run} - {expId} - {det.getSerial()} -     {raft} - {sensor}', title_plots)
+126     #amp_plots(longest_exp, f'Overscans in Run {run} - {expId} - {det.getSerial()} - {raft} -     {sensor}', title_plots)  
+127 
+                                                                                127,0-1       Bot
+
+ 
+ 
+ 
+                                                                                49,4          25%
+ 
+ 
