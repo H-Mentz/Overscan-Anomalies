@@ -1,0 +1,82 @@
+# INDIVIDUAL E-BAR PLOT FOR INDIVIDUAL AMP; (ie NO AMP LOOP)
+# PRINTS FIRST AND LAST 5 ROWS OF OVERSCAN ARRAY
+
+
+
+from lsst.daf.persistence import Butler
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import rcParams
+import sys
+
+'''Below makes it so you can print the entire array'''
+np.set_printoptions(threshold=sys.maxsize)
+    
+def get_long_exp_info(butler, run, raft, sensor):
+    exp_times = butler.queryMetadata('raw', ['expTime','expId'], dataId={'run': run,'raftName': raft,'detectorName': sensor})
+    return sorted(exp_times)[-1] 
+
+def plot_oscans(exp, title_prefix, title_plots):
+    det = exp.getDetector()
+    amp = det[-6] #I picked this amp because it regularly acts up; You can pick any amp.
+    print(amp.getName())
+    print(det.getSerial())
+    
+    '''This is where I call the oscan data from the Butler.'''
+    oscan_arr = exp[amp.getRawHorizontalOverscanBBox()].getMaskedImage().getImage().getArray()
+    print(oscan_arr.shape)  
+    
+    '''This is where I slice the array in order to look at the behavior of the elements.'''
+    print(oscan_arr[:5])
+    print()
+    print(oscan_arr[-5:])
+    print()
+    
+    '''Here I calculate the mean and std.'''
+    overscan_mean = np.mean(oscan_arr, axis=0)
+    oscan_std = np.std(oscan_arr, axis=0)
+    
+    '''Below I create the e-bar plots.'''
+    plt.figure()
+    fig = plt.errorbar(np.arange(len(overscan_mean)), overscan_mean, yerr=oscan_std, fmt='o', capsize=5)
+    plt.title(f'{title_prefix} - {amp.getName()}', loc='center', pad=20, wrap=True, fontsize=10)
+    plt.xlabel('Pixel Value')
+    plt.ylabel('ADU Counts')
+    plt.savefig(title_plots, facecolor='w', bbox_inches = 'tight', pad_inches = 1)
+    return plt.show()
+    
+def plt_lng_exp_oscans(butler, run, raft, sensor):
+    exp_Time, expId = get_long_exp_info(butler, run, raft, sensor)
+    longst_exp = butler.get('raw', dataId={'expId': expId,'run': run,'raftName': raft,'detectorName': sensor})
+    det = longst_exp.getDetector()
+    title_plots = f'plots/errbar_{run}_{expId}_{det.getSerial()}_{raft}_{sensor}.png'
+    fig = plot_oscans(longst_exp, f'Overscans in Run {run} - {expId} - {det.getSerial()} -{raft} - {sensor}', title_plots)   
+    return fig
+
+'''Assigning path run, raft, and sensor to be used as function arguments.'''
+repo = '/lsstdata/offline/teststand/BOT/gen2repo/'
+butler = Butler(repo)
+run = '6790D'
+
+'''I did not loop through raft/sensor b/c looping thought part of the problem previously.'''
+raft = 'R20' #ITL
+# raft = 'R02' #ITL
+# raft = 'R01' #ITL
+# raft = 'R11' #E2V
+# raft = 'R22' #E2V
+# raft = 'R12' #E2V
+# raft = 'R21' #E2V
+# raft = 'R30' #E2V
+# raft = 'R10' #REB OFF
+
+sensor = 'S00'
+# sensor = 'S01'
+# sensor = 'S02'
+# sensor = 'S10'
+# sensor = 'S11'
+# sensor = 'S12'
+# sensor = 'S20'
+# sensor = 'S21'
+# sensor = 'S22'
+
+plt_lng_exp_oscans(butler, run, raft, sensor)
