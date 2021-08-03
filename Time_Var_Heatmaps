@@ -1,0 +1,85 @@
+# CHRONOLOGICAL HEATMAP SUBPLOTS
+
+from lsst.daf.persistence import Butler
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import rcParams
+import sys
+
+
+def get_info(butler, run, raft, sensor):
+    exp_times = butler.queryMetadata('raw', ['expTime','expId'], dataId={'run': run, 'imageType': 'FLAT', 'raftName': raft,'detectorName': sensor})
+    x = sorted(exp_times)[-20::2] #LAST 20TH ELEMENTS; EVERY OTHER ELEMENT B/C FLATS COME IN PAIRS
+#     x = sorted(exp_times)[-29:-9:2] #LAST 29TH TO 9TH ELEMENTS; EVERY OTHER ELEMENT B/C FLATS COME IN PAIRS
+#     x = sorted(exp_times)[-40:-20:2] #LAST 40TH TO 20TH ELEMENTS; EVERY OTHER ELEMENT B/C FLATS COME IN PAIRS
+
+#     print(x) #SHOULD BE LIST OF TUPLES [(exp. time, exp. ID)]
+#     print() #SPACING
+#     print(len(x)) #KEEP TO 10 OR CHANGE SUBPLOT COL/ROW SIZES
+
+#     runs = butler.queryMetadata('raw', 'run', dataId = {'imageType' : 'FLAT'}) #TO LOOK AT AVAILABLE FLATS
+#     print(runs)
+#     print()
+#     exit()
+    return x 
+  
+
+def print_colorbar(exposures, info, title_prefix, title_plots):
+    fig, axs = plt.subplots(2,5,figsize=(29, 32))
+    det = exposures[0].getDetector()
+    amp = det[-6]
+    for exposure, ax, (expTime, expId) in zip(exposures, axs.ravel(), info):
+        image_array = exposure[amp.getRawBBox()].getMaskedImage().getImage().getArray()
+        rotscan = np.rot90(image_array, k=2)
+        im = ax.imshow(rotscan)
+
+#         image_array = exposure[amp.getRawHorizontalOverscanBBox()].getMaskedImage().getImage().getArray() #OSCAN ONLY
+#         rotscan = np.rot90(image_array, k=2)
+#         im = ax.imshow(rotscan)
+    
+
+#         image_array = exposure.getMaskedImage().getImage().getArray() #MASKED IMAGE
+#         flipscan = np.fliplr(image_array)
+#         im = ax.imshow(flipscan)
+    
+#         print(image_array.shape) 
+        #W/ PRESCAN = (2048, 576)
+        #OSCAN ONLY = (2000,64)
+        #MASKED ONLY = (4096, 4608)
+   
+        cbar = fig.colorbar(im, ax=ax)
+        ax.set_title(f'{expTime} - {expId}', wrap=True, loc='center', pad=20)
+        ax.set_xlabel('Column Number', fontsize=15)
+        ax.set_ylabel('Row Number', fontsize=15)
+        cbar.ax.set_ylabel('ADU Count', fontsize=15, rotation=270)
+    fig.suptitle(f'{title_prefix} - {amp.getName()}', fontsize=20)
+    fig.tight_layout()
+    fig.savefig(title_plots, facecolor='w', bbox_inches = 'tight', pad_inches = 0.5)
+    return 
+
+
+def plot_heatmaps(butler, run, raft, sensor):
+    info = get_info(butler, run, raft, sensor)
+    exposures = []
+    for expTime, expId in info:
+#         print(expTime)
+        exp = butler.get('raw', dataId={'expId': expId,'run': run,'raftName': raft,'detectorName': sensor})
+        exposures.append(exp)
+    det = exposures[0].getDetector()
+    title_subplots = f'{run}_{det.getSerial()}_{raft}_{sensor}'
+    title_png = f'plots/heatmap_{run}_{expId}_{det.getSerial()}_{raft}_{sensor}.png'
+    c_bar = print_colorbar(exposures, info, title_subplots, title_png) 
+    return c_bar
+
+
+    
+repo = '/lsstdata/offline/teststand/BOT/gen2repo/'
+butler = Butler(repo)
+run = '6790D'
+# run = '6819D'
+# run = '12398'#TB: INDEX OUT OF RANGE
+raft = 'R20' #ITL
+sensor = 'S00'
+
+plot_heatmaps(butler, run, raft, sensor)
+
