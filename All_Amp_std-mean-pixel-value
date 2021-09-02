@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib import rcParams
     
 def get_longest_exposure_info(b, run, raft, sensor):
-    exp_times = b.queryMetadata('raw', ['expTime','expId'], dataId={'run': run,'raftName': raft,'detectorName': sensor})
+    exp_times = b.queryMetadata('raw', ['expTime','expId'], dataId={'run': run,'raftName': raft,'detectorName': sensor, 'imageType': 'FLAT'})
     s = sorted(exp_times)[-1]                     #Longest exposure time in exp_times
 #     s = sorted(exp_times)[len(exp_times)//2]    #Median exposure time in exp_times
 #     s = sorted(exp_times)[0]                    #Shortest exposure time in exp_times
@@ -47,7 +47,7 @@ def plot_overscans(exp, title_prefix, title_plots, title_subplots):
     
 def plot_longest_exp_overscans(b, run, raft, sensor):
     exp_Time, expId = get_longest_exposure_info(b, run, raft, sensor)
-    longest_exp = b.get('raw', dataId={'expId': expId,'run': run,'raftName': raft,'detectorName': sensor})
+    longest_exp = b.get('raw', dataId={'expId': expId,'run': run,'raftName': raft,'detectorName': sensor, 'imageType': 'FLAT'})
     det = longest_exp.getDetector()
     title_subplots = f'{run}_{det.getSerial()}_{raft}_{sensor}'
     title_plots = f'plots/errbar_{run}_{expId}_{det.getSerial()}_{raft}_{sensor}.png'
