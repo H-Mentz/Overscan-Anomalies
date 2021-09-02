@@ -1,0 +1,64 @@
+# Code Objective: Subplots for std of mean pixel value in serial overscan region at a given exposure time for every amp on a given sensor; 
+#Final Output: Produces 4x4 errorbar subplots.
+
+from lsst.daf.persistence import Butler
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import rcParams
+    
+def get_longest_exposure_info(b, run, raft, sensor):
+    exp_times = b.queryMetadata('raw', ['expTime','expId'], dataId={'run': run,'raftName': raft,'detectorName': sensor})
+    s = sorted(exp_times)[-1]                     #Longest exposure time in exp_times
+#     s = sorted(exp_times)[len(exp_times)//2]    #Median exposure time in exp_times
+#     s = sorted(exp_times)[0]                    #Shortest exposure time in exp_times
+    return s
+
+def plot_overscans(exp, title_prefix, title_plots, title_subplots):
+    fig, axs = plt.subplots(4,4,figsize=(50,50))
+    det = exp.getDetector()
+    for amp, ax in zip(det, axs.ravel()):
+        imarray = exp[amp.getRawDataBBox()].getMaskedImage().getImage().getArray()
+        mpv_array = np.median(imarray)
+        overscan_arr = exp[amp.getRawHorizontalOverscanBBox()].getMaskedImage().getImage().getArray()
+        rotscan = np.rot90(overscan_arr, k=2)
+        overscan_means = np.mean(rotscan, axis=0)
+        overscan_std = np.std(rotscan, axis=0)
+        mean_std = np.mean(overscan_std)
+        length_ebar = 2*mean_std
+        x = np.arange(len(overscan_means))
+        ax.errorbar(np.arange(len(overscan_means)), overscan_means, yerr=overscan_std, fmt='o', color='blue', capsize=5)
+        label1 = 'Median Pixel Value Full Image: {mpv_array}'.format(mpv_array=mpv_array)
+        ax.set_title(f'{amp.getName()}_{label1}', wrap=True, loc='center', pad=20, fontsize=28)
+        ax.set_xlabel('Pixel Number', fontsize=28)
+        ax.set_ylabel('ADU Counts', fontsize=28)
+        ax.ticklabel_format(useOffset=False)
+        rcParams['axes.titlepad'] = 25
+        ax.tick_params(axis='x', labelsize=15)
+        ax.tick_params(axis='y', labelsize=15)
+        fig.tight_layout(h_pad=3, w_pad=15)
+        fig.subplots_adjust(top=0.95)
+        label2 = 'AVG length of Ebar: {length_ebar}'.format(length_ebar=length_ebar)
+        ax.legend([label2], fontsize=20)
+    fig.suptitle(f'{title_prefix}', fontsize=28)
+    plt.savefig(title_plots, facecolor='w', bbox_inches = 'tight', pad_inches = 1)
+    fig.show()
+    return fig, axs
+      
+    
+def plot_longest_exp_overscans(b, run, raft, sensor):
+    exp_Time, expId = get_longest_exposure_info(b, run, raft, sensor)
+    longest_exp = b.get('raw', dataId={'expId': expId,'run': run,'raftName': raft,'detectorName': sensor})
+    det = longest_exp.getDetector()
+    title_subplots = f'{run}_{det.getSerial()}_{raft}_{sensor}'
+    title_plots = f'plots/errbar_{run}_{expId}_{det.getSerial()}_{raft}_{sensor}.png'
+    fig, axs = plot_overscans(longest_exp, f'Overscans in Run {run} - {expId} - {det.getSerial()} -{raft} - {sensor} ', title_plots, title_subplots)   
+    return fig, axs
+
+
+repo_directory = "/lsstdata/offline/teststand/BOT/gen2repo"
+b = Butler(repo_directory)
+run = '12549'
+raft = 'R02'
+sensor = 'S11'
+
+plot_longest_exp_overscans(b, run, raft, sensor)
