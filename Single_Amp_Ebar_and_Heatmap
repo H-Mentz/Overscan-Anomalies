@@ -1,0 +1,83 @@
+#Objective1: Produce single plot for standard dev. of mean pixel value in serial overscan
+#Objective2: Produce single heat-map for pixel value in full sensor array
+
+# INDIVIDUAL E-BAR + HEATMAP PLOT FOR INDIVIDUAL AMP; (ie NO AMP LOOP)
+
+from lsst.daf.persistence import Butler
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import rcParams
+import sys
+'''Below makes it so you can print the entire array'''
+np.set_printoptions(threshold=sys.maxsize)
+    
+def get_long_exp_info(butler, run, raft, sensor):
+    exp_times = butler.queryMetadata('raw', ['expTime','expId'], dataId={'run': run,'raftName': raft,'detectorName': sensor, 'imageType': 'FLAT'}) 
+#     return sorted(exp_times)[0]                  #Returns lowest exposure time
+#     return sorted(exp_times)[len(exp_times)//2]  #Returns median exposure time
+     return sorted(exp_times)[-1]                  #Returns highest exposure time
+
+    
+
+def print_colorbar(exp, title_prefix, title_plots):
+    fig, ax = plt.subplots(1,1, figsize=(5,30))
+    det = exp.getDetector()
+    print(det)
+    amp = det[15]
+    image_array = exp[amp.getRawBBox()].getMaskedImage().getImage().getArray()
+    mpv_array = np.median(image_array)
+    rotscan = np.rot90(image_array, k=2)
+    im = ax.imshow(rotscan)
+    cbar = fig.colorbar(im, ax=ax)
+    ax.set_title(f'{title_prefix} - {raft} - {sensor} - {amp.getName()} - {mpv_array} mpv', loc='center', pad=30, wrap=True, fontsize=16)
+    ax.set_xlabel('Column Number', fontsize=20)
+    ax.set_ylabel('Row Number', fontsize=20)
+    cbar.ax.set_ylabel('ADU Count', fontsize=20, labelpad=20, rotation=270)
+    fig.tight_layout()
+    fig.savefig(title_plots, facecolor='w', bbox_inches = 'tight', pad_inches = 0.5)
+    return 
+    
+
+def plot_oscans(exp, title_prefix, title_plots):
+    det = exp.getDetector()
+    amp = det[15]
+    oscan_arr = exp[amp.getRawHorizontalOverscanBBox()].getMaskedImage().getImage().getArray()
+    print(oscan_arr.shape)  
+    rotscan = np.rot90(oscan_arr, k=2)
+    overscan_mean = np.mean(rotscan, axis=0)
+    oscan_std = np.std(rotscan, axis=0)
+    mean_std = np.mean(oscan_std)
+    length_ebar = 2*mean_std
+    imarray = exp[amp.getRawDataBBox()].getMaskedImage().getImage().getArray()
+    mpv_array = np.median(imarray)
+    plt.figure()
+    fig = plt.errorbar(np.arange(len(overscan_mean)), overscan_mean, yerr=oscan_std, fmt='o', capsize=5)
+    plt.title(f'{title_prefix} - {amp.getName()}', loc='center', pad=20, wrap=True, fontsize=10)
+    plt.xlabel('Pixel Number')
+    plt.ylabel('ADU Counts')
+    plt.ticklabel_format(useOffset=False)
+    label2 = 'AVG length of Ebar: {length_ebar}'.format(length_ebar=length_ebar)
+    plt.legend([label2])
+    plt.savefig(title_plots, facecolor='w', bbox_inches = 'tight', pad_inches = 1)
+    return plt.show()
+    
+def plt_lng_exp_oscans(butler, run, raft, sensor):
+    exp_Time, expId = get_long_exp_info(butler, run, raft, sensor)
+    longst_exp = butler.get('raw', dataId={'expId': expId,'run': run,'raftName': raft,'detectorName': sensor})
+    det = longst_exp.getDetector()
+    title_plots = f'plots/errbar_{run}_{expId}_{det.getSerial()}_{raft}_{sensor}.png'
+    fig = plot_oscans(longst_exp, f'Overscans in Run {run} - {expId} - {det.getSerial()} -{raft} - {sensor} - {exp_Time} s', title_plots)  
+    c_bar = print_colorbar(longst_exp, f'Run {run} - {exp_Time} s', title_plots) 
+    plt.xlabel('Column Number', fontsize=15)
+    plt.ylabel('Row Number', fontsize=15)
+    return c_bar, fig
+
+'''Assigning path run, raft, and sensor to be used as function arguments.'''
+repo = '/lsstdata/offline/teststand/BOT/gen2repo/'
+butler = Butler(repo)
+run = '12549'
+raft = 'R02' #ITL
+sensor = 'S11'
+
+plt_lng_exp_oscans(butler, run, raft, sensor)
+
