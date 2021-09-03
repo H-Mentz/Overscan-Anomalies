@@ -1,0 +1,60 @@
+# HEATMAP SUBPLOTS: Amp-by-Amp
+
+from lsst.daf.persistence import Butler
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import rcParams
+import sys
+
+
+def get_info(butler, run, raft, sensor):
+    exp_times = butler.queryMetadata('raw', ['expTime','expId'], dataId={'run': run, 'imageType': 'FLAT', 'raftName': raft,'detectorName': sensor})
+    x = sorted(exp_times)[-1]                    #Max Exp Time
+#     x = sorted(exp_times)[len(exp_times)//2]   #Med Exp Time
+#     x = sorted(exp_times)[0]                   #Min Exp Time
+    return x 
+
+def plot_amp_colorbar(longest_exp, title_subplots, title_png):
+    fig, axs = plt.subplots(2,8,figsize=(30,10))
+    det = longest_exp.getDetector()
+    amp_readout = [det[0], det[1], det[2], det[3], det[4], det[5], det[6], det[7], det[15], det[14], det[13], det[12], det[11], det[10], det[9], det[8]]   
+    for amp, ax in zip(amp_readout, axs.ravel()):
+        image_array = longest_exp[amp.getRawBBox()].getMaskedImage().getImage().getArray()
+        if amp.getName()[1] == '0':
+            rotscan = np.rot90(image_array, k=2)
+            re_or_array = np.array(rotscan)
+        else: 
+            flipscan = np.fliplr(image_array)
+            re_or_array = np.array(flipscan)
+        im = ax.imshow(re_or_array)
+        cbar = fig.colorbar(im, ax=ax)
+        ax.set_title(f'{amp.getName()}', wrap=True, loc='center', pad=20)
+        ax.set_xlabel('Column Number', fontsize=15)
+        ax.set_ylabel('Row Number', fontsize=15)
+        cbar.ax.set_ylabel('ADU Count', fontsize=15, labelpad=20, rotation=270)
+    fig.suptitle(f'{title_subplots}', fontsize=20)
+    fig.tight_layout()
+    fig.savefig(title_png, facecolor='w', bbox_inches = 'tight', pad_inches = 0.5)
+    return 
+
+
+
+def plot_heatmaps(butler, run, raft, sensor):
+    exp_Time, expId = get_info(butler, run, raft, sensor)
+    longest_exp = butler.get('raw', dataId={'expId': expId,'run': run,'raftName': raft,'detectorName': sensor})
+    det = longest_exp.getDetector()
+    title_subplots = f'{run}_{det.getSerial()}_{raft}_{sensor}_{exp_Time} s'
+    title_png = f'plots/heatmap_{run}_{expId}_{det.getSerial()}_{raft}_{sensor}.png'
+    c_bar = plot_amp_colorbar(longest_exp, title_subplots, title_png)
+    return c_bar
+
+    
+repo = '/lsstdata/offline/teststand/BOT/gen2repo/'
+butler = Butler(repo)
+run = '12549'
+raft = 'R02' #itl
+# raft = 'R12' #e2v
+sensor = 'S11'
+
+plot_heatmaps(butler, run, raft, sensor)
+
