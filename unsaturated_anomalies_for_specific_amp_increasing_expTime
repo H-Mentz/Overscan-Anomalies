@@ -1,0 +1,129 @@
+## E-BAR SUBPLOTS PER INCREASING EXPOSURE TIME 
+
+
+from lsst.daf.persistence import Butler
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import rcParams
+from scipy.integrate import quad
+import sys
+
+
+def get_info(butler, run, raft, sensor):
+    exp_times = butler.queryMetadata('raw', ['expTime','expId'], dataId={'run': run, 'imageType': 'FLAT', 'raftName': raft,'detectorName': sensor})
+#     x = sorted(exp_times)[-20::2] #LAST 20TH ELEMENTS; EVERY OTHER ELEMENT B/C FLATS COME IN PAIRS
+    # x = sorted(exp_times)[1:20:2] #FIRST 20 ELEMENTS; EOO ELEMENT = 10 TOTAL
+    # x = sorted(exp_times)[1:362:36] #12549
+    # x = sorted(exp_times)[1:122:12] #12606
+    # x = sorted(exp_times)[1:88:8]
+    x = sorted(exp_times)[1:124:6] #13035
+    # x = sorted(exp_times)[1:176:8] #13018
+    # x = sorted(exp_times)[0:177]
+    print(len(exp_times))
+    return x 
+        
+   
+def print_ebar(exposures, info, title_prefix, title_plots):
+    # fig, axs = plt.subplots(2,5,figsize=(50,20))
+    fig, axs = plt.subplots(3,5,figsize=(50,30))
+    det = exposures[0].getDetector()
+    amp = det[6]
+    for exposure, ax, (expTime, expId) in zip(exposures, axs.ravel(), info):
+        imarray = exposure[amp.getRawDataBBox()].getMaskedImage().getImage().getArray()
+        integral = np.sum(imarray, axis = 1)
+        print(imarray.shape)
+        print(integral)
+        mpv_array = np.median(imarray)
+        formatted_mpv_array = format(mpv_array, ".3f")
+        overscan_arr = exposure[amp.getRawHorizontalOverscanBBox()].getMaskedImage().getImage().getArray()#OSCAN ONLY
+        
+# FOR E2V SENSORS      
+        # if amp.getName()[1] == '1':
+        #     flipscan = np.fliplr(overscan_arr)
+        #     re_or_array = np.array(flipscan)
+        # else:
+        #     rotscan = np.rot90(overscan_arr, k=2)
+        #     flipscan = np.fliplr(rotscan)
+        #     re_or_array = np.array(flipscan)     
+        # # # im = ax.imshow(re_or_array)
+        # overscan_means = np.mean(re_or_array, axis=0) 
+        # overscan_std = np.std(re_or_array, axis=0)    
+
+        
+
+          
+#FOR ITL SENSORS
+        if amp.getName()[1] == '1':
+            flipscan = np.fliplr(overscan_arr)
+            re_or_array = np.array(flipscan)
+        else:
+            rotscan = np.rot90(overscan_arr, k=2)
+            re_or_array = np.array(rotscan)     
+        overscan_means = np.mean(re_or_array, axis=0) 
+        overscan_std = np.std(re_or_array, axis=0)
+        
+        
+        
+        
+#         overscan_means = np.mean(overscan_arr, axis=0) #for natural sensor orientation only
+#         overscan_std = np.std(overscan_arr, axis=0)    #for natural sensor orientation only
+
+        e_bar = ax.errorbar(np.arange(len(overscan_means)), overscan_means, yerr=overscan_std, fmt='o', capsize=5)
+        label1 = 'Median Pixel Value Full Image: {formatted_mpv_array}'.format(formatted_mpv_array=formatted_mpv_array)
+        ax.set_title(f'{expTime}s-{expId}-{label1}', wrap=True, loc='center', pad=20, fontsize=20)
+        ax.set_xlabel('Overscan Pixel Number', fontsize=20)
+        ax.set_ylabel('ADU Counts', fontsize=25)
+        
+        length_ebar = np.mean(overscan_std)
+        formatted_ebar_length = format(length_ebar, ".1f")
+        label2 = 'AVG variance: +- {formatted_ebar_length}'.format(formatted_ebar_length=formatted_ebar_length)
+        ax.legend([label2], fontsize=20)
+        # label2 = 'AVG variance: +- {formatted_ebar_length}'.format(formatted_ebar_length=formatted_ebar_length)
+        plt.legend([label2])
+        ax.legend([label2], fontsize=25)
+        rcParams['axes.titlepad'] = 25
+        ax.tick_params(axis='x', labelsize=20)
+        ax.tick_params(axis='y', labelsize=20)
+        fig.tight_layout(h_pad=3, w_pad=15)
+        fig.subplots_adjust(top=0.90)        
+    fig.suptitle(f'{title_prefix} - {amp.getName()}', fontsize=20)
+    plt.savefig(title_plots, facecolor='w', bbox_inches = 'tight', pad_inches = 1)
+    fig.show()
+    return fig, axs
+
+
+def plot_ebars(butler, run, raft, sensor):
+    info = get_info(butler, run, raft, sensor)
+    exposures = []
+    for expTime, expId in info:
+        exp = butler.get('raw', dataId={'expId': expId,'run': run,'raftName': raft,'detectorName': sensor})
+        exposures.append(exp)
+    det = exposures[0].getDetector()
+    title_subplots = f'{run}_{det.getSerial()}_{raft}_{sensor}'
+    title_png = f'plots/error_bar_{run}_{expId}_{det.getSerial()}_{raft}_{sensor}.png'
+    e_bar = print_ebar(exposures, info, title_subplots, title_png) 
+    return e_bar
+
+repo = '/lsstdata/offline/teststand/BOT/gen2repo/'
+butler = Butler(repo)
+# run = '12549'
+# run = '12606'
+# run = '12844'
+# run = '12761'
+# run = '13038'
+run = '13035'
+# run = '13018'
+# raft = 'R42'
+raft = 'R41'
+# raft = 'R02'
+# raft = 'R20'
+# raft = 'R22'
+# sensor = 'S00'
+sensor = 'S10'
+# sensor = 'S20'
+# sensors = ['S00', 'S01', 'S02', 'S10', 'S11', 'S12', 'S20', 'S21', 'S22']
+
+# for sensor in sensors: 
+#     plot_ebars(butler, run, raft, sensor)
+    
+plot_ebars(butler, run, raft, sensor)
